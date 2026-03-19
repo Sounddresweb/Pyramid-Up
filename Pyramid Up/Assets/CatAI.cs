@@ -17,6 +17,11 @@ public class CatAI : MonoBehaviour
     [Header("Referencias")]
     public Transform player;
 
+    // --- NUEVAS VARIABLES DE AUDIO ---
+    private AudioSource catAudio;
+    private bool hasMeowed = false;
+    // ---------------------------------
+
     private int currentWaypointIndex = 0;
     private bool isEscaping = false;
     private bool reachedEnd = false;
@@ -28,6 +33,9 @@ public class CatAI : MonoBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
         rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+
+        // Buscamos el componente AudioSource que pusiste en el inspector
+        catAudio = GetComponent<AudioSource>();
     }
 
     void Update()
@@ -41,8 +49,17 @@ public class CatAI : MonoBehaviour
         float distanceToPlayer = Vector2.Distance(
             transform.position, player.position);
 
+        // Lógica de detección y maullido
         if (distanceToPlayer < detectionRange)
+        {
+            // Si es la primera vez que detecta a la momia, ¡maúlla!
+            if (!isEscaping && !hasMeowed)
+            {
+                if (catAudio != null) catAudio.Play();
+                hasMeowed = true;
+            }
             isEscaping = true;
+        }
 
         if (isEscaping && currentWaypointIndex < waypoints.Length)
             MoveToWaypoint(distanceToPlayer);
@@ -53,20 +70,15 @@ public class CatAI : MonoBehaviour
         Transform target = waypoints[currentWaypointIndex];
         Vector2 toTarget = target.position - transform.position;
 
-        // Velocidad dinámica según proximidad de la momia
         float proximity = Mathf.InverseLerp(detectionRange, 0f, distanceToPlayer);
         float currentSpeed = Mathf.Lerp(baseSpeed, maxSpeed, proximity);
 
-        // Movimiento horizontal siempre activo
         float dirX = Mathf.Sign(toTarget.x);
         rb.linearVelocity = new Vector2(dirX * currentSpeed, rb.linearVelocity.y);
-
-        // Flip del sprite
         transform.localScale = new Vector3(
             dirX * Mathf.Abs(transform.localScale.x),
             transform.localScale.y, 1f);
 
-        // Salto: si el waypoint está más arriba y el gato está en el suelo
         jumpCooldown -= Time.deltaTime;
         if (isGrounded && jumpCooldown <= 0f && toTarget.y > 0.5f)
         {
@@ -74,7 +86,6 @@ public class CatAI : MonoBehaviour
             jumpCooldown = 1f;
         }
 
-        // Llegó al waypoint — solo chequea distancia horizontal + vertical
         if (Mathf.Abs(toTarget.x) < 1f && Mathf.Abs(toTarget.y) < 1.5f)
         {
             currentWaypointIndex++;
@@ -82,7 +93,6 @@ public class CatAI : MonoBehaviour
             {
                 reachedEnd = true;
                 rb.linearVelocity = Vector2.zero;
-                Debug.Log("¡El gato llegó al final!");
             }
         }
     }
